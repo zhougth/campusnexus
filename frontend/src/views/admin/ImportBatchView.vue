@@ -158,6 +158,7 @@ onMounted(() => {
           <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
         <el-select v-model="status" placeholder="全部状态" clearable style="width: 140px" @change="reload">
+          <el-option label="处理中" value="PROCESSING" />
           <el-option label="成功" value="SUCCESS" />
           <el-option label="失败" value="FAILED" />
           <el-option label="已回滚" value="ROLLED_BACK" />
@@ -210,7 +211,7 @@ onMounted(() => {
                     link
                     type="danger"
                     size="small"
-                    :disabled="row.status === 'ROLLED_BACK'"
+                    :disabled="row.status === 'ROLLED_BACK' || row.status === 'PROCESSING'"
                     @click="openRollback(row)"
                   >
                     回滚

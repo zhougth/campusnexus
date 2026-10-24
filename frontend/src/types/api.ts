@@ -167,7 +167,7 @@ export interface ImportBatchVO {
   keywords: string | null
   knowledgeCount: number
   totalChars: number
-  status: 'SUCCESS' | 'FAILED' | 'ROLLED_BACK'
+  status: 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'ROLLED_BACK'
   errorMessage: string | null
   createdBy: number
   createTime: string
@@ -209,6 +209,7 @@ export interface DocumentUploadResponse {
   docTitle: string | null
   knowledgeCount: number
   totalChars: number
+  status: 'PROCESSING' | 'SUCCESS' | 'FAILED'
 }
 
 export interface LoginDTO {

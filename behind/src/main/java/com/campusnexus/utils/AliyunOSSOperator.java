@@ -1,14 +1,24 @@
 package com.campusnexus.utils;
 
-import com.aliyun.oss.*;
+import com.aliyun.oss.ClientBuilderConfiguration;
+import com.aliyun.oss.ClientException;
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.OSSException;
 import com.aliyun.oss.common.auth.DefaultCredentialProvider;
 import com.aliyun.oss.common.comm.SignVersion;
+import com.aliyun.oss.model.OSSObject;
+import com.campusnexus.common.exception.BizException;
+import com.campusnexus.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AliyunOSSOperator {
@@ -16,60 +26,78 @@ public class AliyunOSSOperator {
     private final AliyunOSSProperties aliyunOSSProperties;
 
     public String upload(byte[] data, String filename) {
-
-        // 设置OSS地域和Endpoint
-        String region = aliyunOSSProperties.getRegion();
-        String endpoint = aliyunOSSProperties.getEndpoint();
-        String bucketName = aliyunOSSProperties.getBucketname();
-        String accessKeyId = aliyunOSSProperties.getAccessKeyId();
-        String accessKeySecret = aliyunOSSProperties.getAccessKeySecret();
-
-        // 创建凭证提供者
-        DefaultCredentialProvider provider = new DefaultCredentialProvider(accessKeyId, accessKeySecret);
-
-        // 配置客户端参数
-        ClientBuilderConfiguration clientBuilderConfiguration = new ClientBuilderConfiguration();
-        // 显式声明使用V4签名算法
-        clientBuilderConfiguration.setSignatureVersion(SignVersion.V4);
-
-        // 初始化OSS客户端
-        OSS ossClient = OSSClientBuilder.create()
-                .credentialsProvider(provider)
-                .clientConfiguration(clientBuilderConfiguration)
-                .region(region)
-                .endpoint(endpoint)
-                .build();
-
+        OSS ossClient = createClient();
         try {
-            // 1. 将 byte[] 包装为 ByteArrayInputStream
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
-
-            // 2. 执行上传
-            // filename 即为 Object 的完整路径（例如 "images/photo.jpg"）
-            // 注意：Object 路径中不能包含 Bucket 名称
-            ossClient.putObject(bucketName, filename, inputStream);
-
-            System.out.println("文件上传成功: " + filename);
-
-        } catch (OSSException oe) {
-            // 处理 OSS 服务端返回的错误（如权限不足、Bucket 不存在等）
-            System.out.println("OSS 服务端异常: " + oe.getErrorMessage());
-            oe.printStackTrace();
-        } catch (ClientException ce) {
-            // 处理客户端异常（如网络不通、Endpoint 错误等）
-            System.out.println("OSS 客户端异常: " + ce.getMessage());
-            ce.printStackTrace();
+            ossClient.putObject(bucketName(), filename, new ByteArrayInputStream(data));
+        } catch (OSSException | ClientException e) {
+            log.error("OSS 上传失败: {}", filename, e);
+            throw new BizException(ErrorCode.OSS_UPLOAD_FAILED);
         } finally {
-            // 3. 务必关闭客户端，释放连接资源
-            if (ossClient != null) {
-                ossClient.shutdown();
-            }
+            ossClient.shutdown();
         }
-        // 确保 endpoint 不以 "https://" 或 "http://" 开头
-        String cleanEndpoint = endpoint.replace("https://", "").replace("http://", "");
-        String fileUrl = String.format("https://%s.%s/%s", bucketName, cleanEndpoint, filename);
-        // 例如：https://my-bucket.oss-cn-hangzhou.aliyuncs.com/images/photo.jpg
-        return fileUrl;
+        return buildFileUrl(filename);
     }
 
+    public byte[] download(String fileUrl) {
+        String objectKey = extractObjectKey(fileUrl);
+        OSS ossClient = createClient();
+        try (OSSObject object = ossClient.getObject(bucketName(), objectKey)) {
+            return object.getObjectContent().readAllBytes();
+        } catch (IOException e) {
+            log.error("读取 OSS 文件失败: {}", fileUrl, e);
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "读取原始文件失败");
+        } catch (OSSException | ClientException e) {
+            log.error("下载 OSS 文件失败: {}", fileUrl, e);
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "读取原始文件失败");
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    private OSS createClient() {
+        String endpoint = aliyunOSSProperties.getEndpoint();
+        String accessKeyId = aliyunOSSProperties.getAccessKeyId();
+        String accessKeySecret = aliyunOSSProperties.getAccessKeySecret();
+        if (!StringUtils.hasText(endpoint)
+                || !StringUtils.hasText(accessKeyId)
+                || !StringUtils.hasText(accessKeySecret)) {
+            throw new BizException(ErrorCode.OSS_UPLOAD_FAILED, "OSS 未配置");
+        }
+
+        ClientBuilderConfiguration configuration = new ClientBuilderConfiguration();
+        configuration.setSignatureVersion(SignVersion.V4);
+
+        return OSSClientBuilder.create()
+                .credentialsProvider(new DefaultCredentialProvider(accessKeyId, accessKeySecret))
+                .clientConfiguration(configuration)
+                .region(aliyunOSSProperties.getRegion())
+                .endpoint(endpoint)
+                .build();
+    }
+
+    private String bucketName() {
+        String bucketName = aliyunOSSProperties.getBucketname();
+        if (!StringUtils.hasText(bucketName)) {
+            throw new BizException(ErrorCode.OSS_UPLOAD_FAILED, "OSS Bucket 未配置");
+        }
+        return bucketName;
+    }
+
+    private String buildFileUrl(String objectKey) {
+        String endpoint = aliyunOSSProperties.getEndpoint();
+        String cleanEndpoint = endpoint.replace("https://", "").replace("http://", "");
+        return String.format("https://%s.%s/%s", bucketName(), cleanEndpoint, objectKey);
+    }
+
+    private String extractObjectKey(String fileUrl) {
+        if (!StringUtils.hasText(fileUrl)) {
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "文件地址为空");
+        }
+        int schemeIndex = fileUrl.indexOf("://");
+        int pathIndex = fileUrl.indexOf('/', schemeIndex < 0 ? 0 : schemeIndex + 3);
+        if (pathIndex < 0 || pathIndex == fileUrl.length() - 1) {
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "无法解析 OSS 文件地址");
+        }
+        return fileUrl.substring(pathIndex + 1);
+    }
 }

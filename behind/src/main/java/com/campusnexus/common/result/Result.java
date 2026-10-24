@@ -23,6 +23,10 @@ public class Result<T> {
         return new Result<>(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMessage(), data, System.currentTimeMillis());
     }
 
+    public static <T> Result<T> accepted(T data) {
+        return new Result<>(202, "任务已提交", data, System.currentTimeMillis());
+    }
+
     public static <T> Result<T> error(ErrorCode errorCode) {
         return error(errorCode.getCode(), errorCode.getMessage());
     }

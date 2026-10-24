@@ -10,6 +10,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class AsyncConfig {
 
     public static final String VECTOR_TASK_EXECUTOR = "vectorTaskExecutor";
+    public static final String IMPORT_TASK_EXECUTOR = "importTaskExecutor";
 
     @Bean(name = VECTOR_TASK_EXECUTOR)
     public ThreadPoolTaskExecutor vectorTaskExecutor() {
@@ -18,6 +19,18 @@ public class AsyncConfig {
         executor.setMaxPoolSize(1);
         executor.setQueueCapacity(20);
         executor.setThreadNamePrefix("vector-task-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        return executor;
+    }
+
+    @Bean(name = IMPORT_TASK_EXECUTOR)
+    public ThreadPoolTaskExecutor importTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("import-task-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;

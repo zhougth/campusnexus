@@ -76,6 +76,7 @@ export function taskStatusTagType(status: string): 'info' | 'primary' | 'success
 
 export function batchStatusText(status: string): string {
   const map: Record<string, string> = {
+    PROCESSING: '处理中',
     SUCCESS: '成功',
     FAILED: '失败',
     ROLLED_BACK: '已回滚',
@@ -83,9 +84,10 @@ export function batchStatusText(status: string): string {
   return map[status] ?? status
 }
 
-export function batchStatusTagType(status: string): 'success' | 'danger' | 'info' {
+export function batchStatusTagType(status: string): 'success' | 'danger' | 'info' | 'warning' {
   if (status === 'SUCCESS') return 'success'
   if (status === 'FAILED') return 'danger'
+  if (status === 'PROCESSING') return 'warning'
   return 'info'
 }
 

@@ -54,6 +54,22 @@ app:
   admin:
     init-username: ${ADMIN_INIT_USERNAME:admin}
     init-password: ${ADMIN_INIT_PASSWORD:123456}
+  storage:
+    type: ${STORAGE_TYPE:oss}
+    local-path: ${STORAGE_LOCAL_PATH:./data/uploads}
+    public-prefix: /uploads
+  import:
+    segment-chars: ${IMPORT_SEGMENT_CHARS:4000}
+    max-sections: ${IMPORT_MAX_SECTIONS:20}
+    max-knowledge: ${IMPORT_MAX_KNOWLEDGE:200}
+  ai:
+    enabled: ${AI_ENABLED:true}
+    base-url: ${AI_BASE_URL:https://ws-qxm9gwdvfn7tutcv.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}
+    api-key: ${API_KEY}
+    model: ${AI_MODEL:glm-5.3}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
+    max-retries: ${AI_MAX_RETRIES:1}
+    max-items-per-section: ${AI_MAX_ITEMS_PER_SECTION:8}
 aliyun:
   oss:
     endpoint: https://oss-cn-beijing.aliyuncs.com
