@@ -6,15 +6,20 @@ import { ElMessage, ElMessageBox, ElNotification, type FormInstance, type FormRu
 import {
   createKnowledge,
   deleteKnowledge,
+  fetchAdminCategories,
   fetchAdminKnowledge,
   triggerVectorize,
   updateKnowledge,
 } from '@/api/admin'
-import { fetchCategories } from '@/api/common'
 import DataState from '@/components/DataState.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import { useAsync } from '@/composables/useAsync'
-import type { AdminKnowledgeVO, CategoryVO, PageResult } from '@/types/api'
+import type {
+  AdminCategoryVO,
+  AdminKnowledgeVO,
+  KnowledgeUpdateDTO,
+  PageResult,
+} from '@/types/api'
 import { ApiError, BackendUnreachableError } from '@/utils/errors'
 import { truncate, vectorStatusTagType, vectorStatusText } from '@/utils/format'
 
@@ -27,9 +32,10 @@ const importBatchId = ref('')
 const page = ref(1)
 const size = ref(10)
 
-const categories = ref<CategoryVO[]>([])
+const categories = ref<AdminCategoryVO[]>([])
 
 const editingId = ref<number | null>(null)
+const originalCategoryId = ref<number | null>(null)
 const formVisible = ref(false)
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
@@ -65,13 +71,17 @@ const { data, loading, notReady, unreachable, errorMessage, run } = useAsync<
 )
 
 function loadCategories(): void {
-  void fetchCategories()
+  void fetchAdminCategories()
     .then((list) => {
       categories.value = list
     })
     .catch(() => {
       categories.value = []
     })
+}
+
+function categoryLabel(item: AdminCategoryVO): string {
+  return item.status === 0 ? `${item.name}（已停用）` : item.name
 }
 
 function search(): void {
@@ -95,12 +105,14 @@ function resetForm(): void {
 
 function openCreate(): void {
   editingId.value = null
+  originalCategoryId.value = null
   resetForm()
   formVisible.value = true
 }
 
 function openEdit(row: AdminKnowledgeVO): void {
   editingId.value = row.id
+  originalCategoryId.value = row.categoryId
   form.categoryId = row.categoryId
   form.title = row.title ?? ''
   form.question = row.question ?? ''
@@ -124,19 +136,23 @@ async function submitForm(): Promise<void> {
     return
   }
 
+  const selectedCategoryId = form.categoryId
   submitting.value = true
   try {
-    const payload = {
-      categoryId: form.categoryId,
+    const content = {
       title: form.title.trim() || undefined,
       question: form.question.trim() || undefined,
       answer: form.answer.trim() || undefined,
       keywords: form.keywords.trim() || undefined,
     }
     if (editingId.value === null) {
-      await createKnowledge(payload)
+      await createKnowledge({ categoryId: selectedCategoryId, ...content })
       ElMessage.success('知识已录入，向量状态为待同步')
     } else {
+      const payload: KnowledgeUpdateDTO = { ...content }
+      if (selectedCategoryId !== originalCategoryId.value) {
+        payload.categoryId = selectedCategoryId
+      }
       await updateKnowledge(editingId.value, payload)
       ElMessage.success('知识已更新，需要重新同步向量')
     }
@@ -229,7 +245,12 @@ onMounted(() => {
           style="width: 160px"
           @change="search"
         >
-          <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
+          <el-option
+            v-for="item in categories"
+            :key="item.id"
+            :label="categoryLabel(item)"
+            :value="item.id"
+          />
         </el-select>
         <el-select v-model="status" placeholder="全部状态" clearable style="width: 130px" @change="search">
           <el-option label="正常" :value="1" />
@@ -322,7 +343,13 @@ onMounted(() => {
       <el-form ref="formRef" :model="form" :rules="formRules" label-position="top">
         <el-form-item label="分类" prop="categoryId">
           <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
-            <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
+            <el-option
+              v-for="item in categories"
+              :key="item.id"
+              :label="categoryLabel(item)"
+              :value="item.id"
+              :disabled="item.status === 0 && item.id !== originalCategoryId"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="标题（可选）" prop="title">

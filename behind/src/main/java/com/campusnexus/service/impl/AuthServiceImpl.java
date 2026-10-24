@@ -14,6 +14,7 @@ import com.campusnexus.security.TokenBlacklistService;
 import com.campusnexus.entity.User;
 import com.campusnexus.mapper.UserMapper;
 import com.campusnexus.service.AuthService;
+import com.campusnexus.utils.AliyunOSSOperator;
 import com.campusnexus.vo.UserVO;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +34,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final AliyunOSSOperator aliyunOSSOperator;
 
     @Override
     @Transactional
@@ -133,6 +138,15 @@ public class AuthServiceImpl implements AuthService {
         } catch (JwtException | IllegalArgumentException ignored) {
             // The request is already authenticated; an invalid token simply has nothing to revoke.
         }
+    }
+
+    @Override
+    public String updateAvatar(MultipartFile file) throws IOException {
+        User user = requireCurrentUser();
+        String url = aliyunOSSOperator.upload(file.getBytes(), file.getOriginalFilename());
+        user.setAvatar(url);
+        userMapper.updateById(user);
+        return url;
     }
 
     private User requireCurrentUser() {

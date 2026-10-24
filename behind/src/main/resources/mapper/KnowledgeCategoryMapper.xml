@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campusnexus.mapper.KnowledgeCategoryMapper">
+
+    <select id="listEnabled" resultType="com.campusnexus.vo.CategoryVO">
+        SELECT c.id,
+               c.name,
+               c.sort,
+               COUNT(k.id) AS knowledge_count
+        FROM knowledge_category c
+                 LEFT JOIN knowledge k
+                           ON k.category_id = c.id
+                               AND k.status = 1
+                               AND k.deleted = 0
+        WHERE c.status = 1
+        GROUP BY c.id, c.name, c.sort
+        ORDER BY c.sort ASC, c.id ASC
+    </select>
+
+    <select id="listAdmin" resultType="com.campusnexus.vo.AdminCategoryVO">
+        SELECT c.id,
+               c.name,
+               c.sort,
+               c.status,
+               COUNT(k.id) AS knowledge_count,
+               c.create_time,
+               c.update_time
+        FROM knowledge_category c
+                 LEFT JOIN knowledge k
+                           ON k.category_id = c.id
+                               AND k.status = 1
+                               AND k.deleted = 0
+        <where>
+            <if test="status != null">
+                c.status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND c.name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        GROUP BY c.id, c.name, c.sort, c.status, c.create_time, c.update_time
+        ORDER BY c.sort ASC, c.id ASC
+    </select>
+
+</mapper>
