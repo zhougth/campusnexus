@@ -15,8 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -28,10 +26,16 @@ public class AuthController {
 
 
 
+    /**
+     * 修改用户头像
+     * @param file 头像文件
+     * @return 新头像 URL
+     */
     @PutMapping("/avatar")
-    public  Result avatar(@RequestParam MultipartFile file) throws IOException {
+    public Result<String> avatar(@RequestParam("file") MultipartFile file) {
         return Result.success(authService.updateAvatar(file));
     }
+
     /**
      * 注册
      * @param dto

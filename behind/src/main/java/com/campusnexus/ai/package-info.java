@@ -1,4 +1,4 @@
 /**
- * RAG 与 AI 编排模块：LangChain4j、向量化、混合检索、Agent 与提示词。
+ * AI 模块入口：按职责拆分为 llm、chat、knowledge、vector 四个子包。
  */
 package com.campusnexus.ai;

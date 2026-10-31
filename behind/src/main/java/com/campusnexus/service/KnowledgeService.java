@@ -5,6 +5,7 @@ import com.campusnexus.common.result.PageResultVO;
 import com.campusnexus.dto.KnowledgeImportDTO;
 import com.campusnexus.dto.KnowledgeListDTO;
 import com.campusnexus.dto.KnowledgeUpdateDTO;
+import com.campusnexus.entity.Contribution;
 import com.campusnexus.entity.Knowledge;
 import com.campusnexus.vo.AdminKnowledgeVO;
 import com.campusnexus.vo.KnowledgeVO;
@@ -16,5 +17,6 @@ public interface KnowledgeService extends IService<Knowledge> {
     Long create(KnowledgeImportDTO dto);
     void update(Long id, KnowledgeUpdateDTO dto);
     void delete(Long id);
+    Long createFromContribution(Contribution contribution, Long categoryId);
 
 }

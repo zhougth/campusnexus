@@ -14,7 +14,8 @@ import com.campusnexus.security.TokenBlacklistService;
 import com.campusnexus.entity.User;
 import com.campusnexus.mapper.UserMapper;
 import com.campusnexus.service.AuthService;
-import com.campusnexus.utils.AliyunOSSOperator;
+import com.campusnexus.storage.FileCleanupService;
+import com.campusnexus.storage.FileStorageService;
 import com.campusnexus.vo.UserVO;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
@@ -25,16 +26,23 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024;
+    private static final Set<String> AVATAR_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
+
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
-    private final AliyunOSSOperator aliyunOSSOperator;
+    private final FileStorageService fileStorageService;
+    private final FileCleanupService fileCleanupService;
 
     @Override
     @Transactional
@@ -141,12 +149,44 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String updateAvatar(MultipartFile file) throws IOException {
+    public String updateAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BizException(ErrorCode.VALIDATION_FAILED, "头像文件不能为空");
+        }
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new BizException(ErrorCode.FILE_TOO_LARGE);
+        }
+        String extension = avatarExtension(file.getOriginalFilename());
+
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BizException(ErrorCode.OSS_UPLOAD_FAILED, "读取头像文件失败");
+        }
+
         User user = requireCurrentUser();
-        String url = aliyunOSSOperator.upload(file.getBytes(), file.getOriginalFilename());
-        user.setAvatar(url);
-        userMapper.updateById(user);
+        String objectKey = "avatar/" + user.getId() + "/" + UUID.randomUUID() + "." + extension;
+        String url = fileStorageService.store(bytes, objectKey);
+
+        User patch = new User();
+        patch.setId(user.getId());
+        patch.setAvatar(url);
+        userMapper.updateById(patch);
+
+        if (StringUtils.hasText(user.getAvatar()) && !user.getAvatar().equals(url)) {
+            fileCleanupService.deleteLater(user.getAvatar());
+        }
         return url;
+    }
+
+    private String avatarExtension(String filename) {
+        int dot = filename == null ? -1 : filename.lastIndexOf('.');
+        String extension = dot < 0 ? "" : filename.substring(dot + 1).toLowerCase(Locale.ROOT);
+        if (!AVATAR_EXTENSIONS.contains(extension)) {
+            throw new BizException(ErrorCode.FILE_TYPE_UNSUPPORTED);
+        }
+        return extension;
     }
 
     private User requireCurrentUser() {

@@ -26,9 +26,9 @@ public class Contribution {
 
     private Integer status;
 
-    private String submitRemark;
+    private String submitRemark; // 提交意见
 
-    private String reviewRemark;
+    private String reviewRemark; // 审核意见
 
     private Long reviewedBy;
 

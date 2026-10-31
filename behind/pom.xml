@@ -117,6 +117,13 @@
             <version>${langchain4j.beta.version}</version>
         </dependency>
 
+        <!-- 中文分词：关键词召回用词项替代 2-gram 滑窗，避免"补办"这类词被切碎 -->
+        <dependency>
+            <groupId>com.huaban</groupId>
+            <artifactId>jieba-analysis</artifactId>
+            <version>1.0.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

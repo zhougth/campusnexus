@@ -209,6 +209,11 @@ onMounted(() => {
         <h3 class="section-label">问题</h3>
         <div class="block">{{ active.question }}</div>
 
+        <template v-if="active.rewrittenQuery">
+          <h3 class="section-label">改写后的检索词</h3>
+          <div class="block">{{ active.rewrittenQuery }}</div>
+        </template>
+
         <h3 class="section-label">回答</h3>
         <pre class="block answer">{{ active.answerContent || '—' }}</pre>
 

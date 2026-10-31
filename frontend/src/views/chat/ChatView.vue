@@ -569,6 +569,12 @@ watch(
                     {{ formatSource(message.done?.source ?? null) }}
                   </el-tag>
                   <span class="meta-text">命中 {{ message.done?.matchCount }} 条知识</span>
+                  <span
+                    v-if="message.done?.source === 'ai_generated' && message.done?.matchCount === 0"
+                    class="meta-text"
+                  >
+                    未经知识库核实
+                  </span>
                   <div class="meta-actions">
                     <el-button link size="small" @click="copyAnswer(message.content)">复制</el-button>
                     <template v-if="auth.isLoggedIn && !message.feedbackDone">

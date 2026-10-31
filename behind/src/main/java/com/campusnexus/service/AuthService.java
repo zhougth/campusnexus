@@ -7,8 +7,6 @@ import com.campusnexus.dto.UpdateProfileDTO;
 import com.campusnexus.vo.UserVO;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-
 public interface AuthService {
 
     UserVO register(RegisterDTO dto);
@@ -23,5 +21,5 @@ public interface AuthService {
 
     void logout(String token);
 
-    String updateAvatar(MultipartFile file) throws IOException;
+    String updateAvatar(MultipartFile file);
 }

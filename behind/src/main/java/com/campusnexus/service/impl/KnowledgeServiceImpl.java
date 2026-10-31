@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.campusnexus.ai.vector.VectorStoreService;
 import com.campusnexus.common.cache.CacheSpec;
 import com.campusnexus.common.cache.RedisCacheHelper;
 import com.campusnexus.common.exception.BizException;
@@ -13,15 +14,19 @@ import com.campusnexus.common.result.PageResultVO;
 import com.campusnexus.dto.KnowledgeImportDTO;
 import com.campusnexus.dto.KnowledgeListDTO;
 import com.campusnexus.dto.KnowledgeUpdateDTO;
+import com.campusnexus.entity.Contribution;
 import com.campusnexus.entity.Knowledge;
 import com.campusnexus.entity.KnowledgeCategory;
+import com.campusnexus.entity.KnowledgeChunk;
 import com.campusnexus.mapper.KnowledgeCategoryMapper;
+import com.campusnexus.mapper.KnowledgeChunkMapper;
 import com.campusnexus.mapper.KnowledgeMapper;
 import com.campusnexus.security.SecurityUtils;
 import com.campusnexus.service.KnowledgeService;
 import com.campusnexus.vo.AdminKnowledgeVO;
 import com.campusnexus.vo.KnowledgeVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,15 +36,26 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge> implements KnowledgeService {
 
+    private static final Pattern CONTRIBUTION_QA_PATTERN =
+            Pattern.compile("问\\s*[:：]\\s*(.+?)\\s*答\\s*[:：]\\s*(.+)", Pattern.DOTALL);
+    private static final int TITLE_MAX_LENGTH = 200;
+    private static final int QUESTION_MAX_LENGTH = 500;
+    private static final int ANSWER_MAX_LENGTH = 5000;
+
     private final KnowledgeMapper knowledgeMapper;
     private final KnowledgeCategoryMapper knowledgeCategoryMapper;
+    private final KnowledgeChunkMapper knowledgeChunkMapper;
     private final RedisCacheHelper redisCacheHelper;
+    private final VectorStoreService vectorStoreService;
 
 
     @Override
@@ -244,8 +260,61 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             throw new BizException(ErrorCode.KNOWLEDGE_NOT_FOUND);
         }
 
+        List<String> chromaIds = knowledgeChunkMapper.selectList(
+                        Wrappers.<KnowledgeChunk>lambdaQuery()
+                                .eq(KnowledgeChunk::getKnowledgeId, id))
+                .stream()
+                .map(KnowledgeChunk::getChromaId)
+                .filter(StringUtils::hasText)
+                .toList();
+
         knowledgeMapper.deleteById(id);
+        knowledgeChunkMapper.delete(Wrappers.<KnowledgeChunk>lambdaQuery()
+                .eq(KnowledgeChunk::getKnowledgeId, id));
         evictCategoryCache();
+        deleteVectorsAfterCommit(chromaIds);
+    }
+
+    @Override
+    @Transactional
+    public Long createFromContribution(Contribution contribution, Long categoryId) {
+        String question = null;
+        String answer = truncate(contribution.getContent(), ANSWER_MAX_LENGTH);
+        if ("qa".equals(contribution.getType())) {
+            Matcher matcher = CONTRIBUTION_QA_PATTERN.matcher(nullToEmpty(contribution.getContent()));
+            if (matcher.find()) {
+                question = truncate(matcher.group(1), QUESTION_MAX_LENGTH);
+                answer = truncate(matcher.group(2), ANSWER_MAX_LENGTH);
+            }
+        }
+
+        Knowledge knowledge = new Knowledge();
+        knowledge.setCategoryId(categoryId);
+        knowledge.setTitle(truncate(contribution.getTitle(), TITLE_MAX_LENGTH));
+        knowledge.setQuestion(question);
+        knowledge.setAnswer(answer);
+        knowledge.setViewCount(0);
+        knowledge.setStatus(1);
+        knowledge.setSourceType("manual");
+        knowledge.setVectorStatus(0);
+        knowledge.setCreatedBy(SecurityUtils.userId());
+
+        knowledgeMapper.insert(knowledge);
+        evictCategoryCache();
+
+        return knowledge.getId();
+    }
+
+    private String truncate(String value, int maxLength) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null || trimmed.length() <= maxLength) {
+            return trimmed;
+        }
+        return trimmed.substring(0, maxLength);
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     private void validateContent(String title, String question, String answer) {
@@ -307,5 +376,29 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 redisCacheHelper.evict(CacheSpec.CATEGORY_ENABLED.key());
             }
         });
+    }
+
+    private void deleteVectorsAfterCommit(List<String> chromaIds) {
+        if (chromaIds.isEmpty()) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteVectorsQuietly(chromaIds);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteVectorsQuietly(chromaIds);
+            }
+        });
+    }
+
+    private void deleteVectorsQuietly(List<String> chromaIds) {
+        try {
+            vectorStoreService.delete(chromaIds);
+        } catch (Exception e) {
+            log.warn("清理知识向量失败，已跳过（检索端会按 MySQL 状态过滤）: {}", e.getMessage());
+        }
     }
 }

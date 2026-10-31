@@ -145,6 +145,7 @@ export interface QuestionLogVO {
   username: string | null
   sessionId: string
   question: string
+  rewrittenQuery: string | null
   answerContent: string | null
   confidence: string | null
   source: string | null

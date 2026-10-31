@@ -66,10 +66,53 @@ app:
     enabled: ${AI_ENABLED:true}
     base-url: ${AI_BASE_URL:https://ws-qxm9gwdvfn7tutcv.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}
     api-key: ${API_KEY}
-    model: ${AI_MODEL:glm-5.3}
+    model: ${AI_MODEL:qwen3.5-plus}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
     max-retries: ${AI_MAX_RETRIES:1}
     max-items-per-section: ${AI_MAX_ITEMS_PER_SECTION:8}
+    embedding:
+      enabled: ${AI_EMBEDDING_ENABLED:true}
+      base-url: ${EMBEDDING_BASE_URL:${AI_BASE_URL:https://ws-qxm9gwdvfn7tutcv.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}}
+      api-key: ${EMBEDDING_API_KEY:${API_KEY}}
+      model: ${EMBEDDING_MODEL:qwen3.7-text-embedding}
+      dimension: ${EMBEDDING_DIMENSION:1024}
+      timeout-seconds: ${EMBEDDING_TIMEOUT_SECONDS:60}
+      max-retries: ${EMBEDDING_MAX_RETRIES:2}
+  vector:
+    enabled: ${VECTOR_ENABLED:true}
+    chroma-url: ${CHROMA_URL:http://localhost:8000}
+    collection: ${CHROMA_COLLECTION:campus_knowledge_v1}
+    api-version: ${CHROMA_API_VERSION:V1}
+    tenant: ${CHROMA_TENANT:default}
+    database: ${CHROMA_DATABASE:default}
+    batch-size: ${VECTOR_BATCH_SIZE:20}
+    max-retries: ${VECTOR_MAX_RETRIES:2}
+    chunk-chars: ${VECTOR_CHUNK_CHARS:500}
+    chunk-overlap: ${VECTOR_CHUNK_OVERLAP:50}
+    timeout-seconds: ${CHROMA_TIMEOUT_SECONDS:30}
+  chat:
+    rate-limit-per-minute: ${RATE_CHAT_PER_MINUTE:10}
+    top-k: ${CHAT_TOP_K:5}
+    vector-candidates: ${CHAT_VECTOR_CANDIDATES:60}
+    vector-min-score: ${CHAT_VECTOR_MIN_SCORE:0.75}
+    keyword-candidates: ${CHAT_KEYWORD_CANDIDATES:200}
+    fulltext-enabled: ${CHAT_FULLTEXT_ENABLED:false}
+    keyword-base-weight: ${CHAT_KEYWORD_BASE_WEIGHT:0.55}
+    keyword-coverage-weight: ${CHAT_KEYWORD_COVERAGE_WEIGHT:0.25}
+    keyword-phrase-weight: ${CHAT_KEYWORD_PHRASE_WEIGHT:0.15}
+    keyword-popularity-weight: ${CHAT_KEYWORD_POPULARITY_WEIGHT:0.05}
+    keyword-min-score: ${CHAT_KEYWORD_MIN_SCORE:0.3}
+    general-answer-min-score: ${CHAT_GENERAL_ANSWER_MIN_SCORE:0.3}
+    relevance-judge-enabled: ${CHAT_RELEVANCE_JUDGE_ENABLED:true}
+    context-max-chars: ${CHAT_CONTEXT_MAX_CHARS:2400}
+    decomposition-threshold: ${CHAT_DECOMPOSITION_THRESHOLD:50}
+    max-question-length: ${CHAT_MAX_QUESTION_LENGTH:500}
+    max-history-limit: ${CHAT_MAX_HISTORY_LIMIT:100}
+    allow-general-answer: ${CHAT_ALLOW_GENERAL_ANSWER:true}
+    history-turns: ${CHAT_HISTORY_TURNS:3}
+    history-max-chars: ${CHAT_HISTORY_MAX_CHARS:1200}
+    sse-timeout-millis: ${CHAT_SSE_TIMEOUT_MILLIS:300000}
+    keep-alive-millis: ${CHAT_KEEP_ALIVE_MILLIS:15000}
 aliyun:
   oss:
     endpoint: https://oss-cn-beijing.aliyuncs.com

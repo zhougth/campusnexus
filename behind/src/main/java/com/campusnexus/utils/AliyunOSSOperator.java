@@ -54,6 +54,19 @@ public class AliyunOSSOperator {
         }
     }
 
+    public void delete(String fileUrl) {
+        String objectKey = extractObjectKey(fileUrl);
+        OSS ossClient = createClient();
+        try {
+            ossClient.deleteObject(bucketName(), objectKey);
+        } catch (OSSException | ClientException e) {
+            log.error("删除 OSS 文件失败: {}", fileUrl, e);
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "删除原始文件失败");
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
     private OSS createClient() {
         String endpoint = aliyunOSSProperties.getEndpoint();
         String accessKeyId = aliyunOSSProperties.getAccessKeyId();

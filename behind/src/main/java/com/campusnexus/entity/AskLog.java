@@ -20,6 +20,8 @@ public class AskLog {
 
     private String question;
 
+    private String rewrittenQuery;
+
     private String answerContent;
 
     private String confidence;
